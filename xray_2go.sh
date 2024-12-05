@@ -24,7 +24,7 @@ export UUID=${UUID:-$(cat /proc/sys/kernel/random/uuid)}
 export PORT=${PORT:-$(shuf -i 1000-60000 -n 1)}
 export ARGO_PORT=${ARGO_PORT:-'8080'}
 export CFIP=${CFIP:-'www.visa.com.tw'} 
-export CFPORT=${CFPORT:-'8443'}   
+export CFPORT=${CFPORT:-'443'}   
 
 # 检查是否为root下运行
 [[ $EUID -ne 0 ]] && red "请在root用户下运行脚本" && exit 1
@@ -190,8 +190,8 @@ cat > "${config_dir}" << EOF
         "clients": [{ "id": "$UUID", "flow": "xtls-rprx-vision" }],
         "decryption": "none",
         "fallbacks": [
-          { "dest": 3001 }, { "path": "/vless", "dest": 3002 },
-          { "path": "/vmess", "dest": 3003 }, { "path": "", "dest": 3004 }
+          { "dest": 3001 }, { "path": "/vless-argo", "dest": 3002 },
+          { "path": "/vmess-argo", "dest": 3003 }, { "path": "", "dest": 3004 }
         ]
       },
       "streamSettings": { "network": "tcp" }
@@ -199,28 +199,28 @@ cat > "${config_dir}" << EOF
     {
       "port": 3001, "listen": "127.0.0.1", "protocol": "vless",
       "settings": { "clients": [{ "id": "$UUID" }], "decryption": "none" },
-      "streamSettings": { "network": "ws", "security": "none" }
+      "streamSettings": { "network": "tcp", "security": "none" }
     },
     {
       "port": 3002, "listen": "127.0.0.1", "protocol": "vless",
       "settings": { "clients": [{ "id": "$UUID", "level": 0 }], "decryption": "none" },
-      "streamSettings": { "network": "ws", "security": "none", "wsSettings": { "path": "/vless" } },
+      "streamSettings": { "network": "ws", "security": "none", "wsSettings": { "path": "/vless-argo" } },
       "sniffing": { "enabled": true, "destOverride": ["http", "tls", "quic"], "metadataOnly": false }
     },
     {
       "port": 3003, "listen": "127.0.0.1", "protocol": "vmess",
       "settings": { "clients": [{ "id": "$UUID", "alterId": 0 }] },
-      "streamSettings": { "network": "ws", "wsSettings": { "path": "/vmess" } },
+      "streamSettings": { "network": "ws", "wsSettings": { "path": "/vmess-argo" } },
       "sniffing": { "enabled": true, "destOverride": ["http", "tls", "quic"], "metadataOnly": false }
     },
     {
       "port": 3004, "listen": "127.0.0.1", "protocol": "vmess",
       "settings": {"clients": [{"id": "$UUID", "alterId": 0, "security": "auto"}]},
-      "streamSettings": {"network": "splithttp", "security": "none", "httpSettings": {"host": "", "path": ""}},
+      "streamSettings": {"network": "splithttp", "security": "none", "slpitSettings": {"host": "", "path": ""}},
       "sniffing": {"enabled": true, "destOverride": ["http", "tls", "quic"], "metadataOnly": false}
     },
     {
-      "listen":"0.0.0.0","port":$GRPC_PORT,"protocol":"vless","settings":{"clients":[{"id":"$UUID"}],"decryption":"none"},"streamSettings":{"network":"grpc","security":"reality","realitySettings":{"dest":"www.iij.ad.jp:443","serverNames":["www.iij.ad.jp"],"privateKey":"$private_key","shortIds":[""]},"grpcSettings":{"serviceName":"grpc"}},"sniffing":{"enabled":true,"destOverride":["http","tls","quic"]}}
+      "listen":"::","port":$GRPC_PORT,"protocol":"vless","settings":{"clients":[{"id":"$UUID"}],"decryption":"none"},"streamSettings":{"network":"grpc","security":"reality","realitySettings":{"dest":"www.iij.ad.jp:443","serverNames":["www.iij.ad.jp"],"privateKey":"$private_key","shortIds":[""]},"grpcSettings":{"serviceName":"grpc"}},"sniffing":{"enabled":true,"destOverride":["http","tls","quic"]}}
   ],
   "dns": { "servers": ["https+local://8.8.8.8/dns-query"] },
   "outbounds": [
@@ -350,11 +350,11 @@ get_info() {
   cat > ${work_dir}/url.txt <<EOF
 vless://${UUID}@${IP}:${GRPC_PORT}??encryption=none&security=reality&sni=www.iij.ad.jp&fp=chrome&pbk=${public_key}&allowInsecure=1&type=grpc&authority=www.iij.ad.jp&serviceName=grpc&mode=gun#${isp}
 
-vless://${UUID}@${CFIP}:${CFPORT}?encryption=none&security=tls&sni=${argodomain}&type=ws&host=${argodomain}&path=%2Fvless%3Fed%3D2048#${isp}
+vless://${UUID}@${CFIP}:${CFPORT}?encryption=none&security=tls&sni=${argodomain}&type=ws&host=${argodomain}&path=%2Fvless-argo%3Fed%3D2048#${isp}
 
-vmess://$(echo "{ \"v\": \"2\", \"ps\": \"${isp}\", \"add\": \"${CFIP}\", \"port\": \"${CFPORT}\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"none\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"${argodomain}\", \"path\": \"/vmess?ed=2048\", \"tls\": \"tls\", \"sni\": \"${argodomain}\", \"alpn\": \"\" }" | base64 -w0)
+vmess://$(echo "{ \"v\": \"2\", \"ps\": \"${isp}\", \"add\": \"${CFIP}\", \"port\": \"${CFPORT}\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"none\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"${argodomain}\", \"path\": \"/vmess-argo?ed=2048\", \"tls\": \"tls\", \"sni\": \"${argodomain}\", \"alpn\": \"\" }" | base64 -w0)
 
-vmess://$(echo "{ \"v\": \"2\", \"ps\": \"${isp}\", \"add\": \"${CFIP}\", \"port\": \"${CFPORT}\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"auto\", \"net\": \"splithttp\", \"type\": \"none\", \"host\": \"${argodomain}\", \"path\": \"\", \"tls\": \"tls\", \"sni\": \"${argodomain}\", \"alpn\": \"\" }" | base64 -w0)
+vmess://$(echo "{ \"v\": \"2\", \"ps\": \"${isp}\", \"add\": \"${IP}\", \"port\": \"${ARGO_PORT}\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"auto\", \"net\": \"splithttp\", \"type\": \"none\", \"host\": \"${argodomain}\", \"path\": \"\", \"tls\": \"none\", \"sni\": \"${argodomain}\", \"alpn\": \"\" }" | base64 -w0)
 EOF
 echo ""
 while IFS= read -r line; do echo -e "${purple}$line"; done < ${work_dir}/url.txt
@@ -916,8 +916,8 @@ EOF
                     sed -i '/^ExecStart=/c ExecStart=/bin/sh -c "/etc/xray/argo tunnel --edge-ip-version auto --config /etc/xray/tunnel.yml run 2>&1"' /etc/systemd/system/tunnel.service
                 fi
                 restart_argo
+                add_split_url
                 change_argo_domain
-
             elif [[ $argo_auth =~ ^[A-Z0-9a-z=]{120,250}$ ]]; then
                 if [ -f /etc/alpine-release ]; then
                     sed -i "/^command_args=/c\command_args=\"-c '/etc/xray/argo tunnel --edge-ip-version auto --no-autoupdate --protocol http2 run --token $argo_auth 2>&1'\"" /etc/init.d/tunnel
@@ -926,6 +926,7 @@ EOF
                     sed -i '/^ExecStart=/c ExecStart=/bin/sh -c "/etc/xray/argo tunnel --edge-ip-version auto --no-autoupdate --protocol http2 run --token '$argo_auth' 2>&1"' /etc/systemd/system/tunnel.service
                 fi
                 restart_argo
+                add_split_url
                 change_argo_domain
             else
                 yellow "你输入的argo域名或token不匹配，请重新输入"
