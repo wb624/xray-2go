@@ -216,29 +216,23 @@ cat > "${config_dir}" << EOF
     {
       "port": 3004, "listen": "127.0.0.1", "protocol": "vmess",
       "settings": {"clients": [{"id": "$UUID", "alterId": 0, "security": "auto"}]},
-      "streamSettings": {"network": "splithttp", "security": "none", "slpitSettings": {"host": "", "path": ""}},
+      "streamSettings": {"network": "xhttp", "security": "none", "xhttpSettings": {"host": "", "path": ""}},
       "sniffing": {"enabled": true, "destOverride": ["http", "tls", "quic"], "metadataOnly": false}
     },
     {
       "listen":"::","port":$GRPC_PORT,"protocol":"vless","settings":{"clients":[{"id":"$UUID"}],"decryption":"none"},"streamSettings":{"network":"grpc","security":"reality","realitySettings":{"dest":"www.iij.ad.jp:443","serverNames":["www.iij.ad.jp"],"privateKey":"$private_key","shortIds":[""]},"grpcSettings":{"serviceName":"grpc"}},"sniffing":{"enabled":true,"destOverride":["http","tls","quic"]}}
   ],
   "dns": { "servers": ["https+local://8.8.8.8/dns-query"] },
-  "outbounds": [
-    { "protocol": "freedom" },
-    {
-      "tag": "WARP", "protocol": "wireguard",
-      "settings": {
-        "secretKey": "YFYOAdbw1bKTHlNNi+aEjBM3BO7unuFC5rOkMRAz9XY=",
-        "address": ["172.16.0.2/32", "2606:4700:110:8a36:df92:102a:9602:fa18/128"],
-        "peers": [{ "publicKey": "bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=", "allowedIPs": ["0.0.0.0/0", "::/0"], "endpoint": "162.159.193.10:2408" }],
-        "reserved": [78, 135, 76], "mtu": 1280
-      }
-    }
-  ],
-  "routing": {
-    "domainStrategy": "AsIs",
-    "rules": [{ "type": "field", "domain": ["domain:openai.com", "domain:ai.com", "domain:chat.openai.com", "domain:chatgpt.com"], "outboundTag": "WARP" }]
-  }
+   "outbounds": [
+        {
+            "protocol": "freedom",
+            "tag": "direct"
+        },
+        {
+            "protocol": "blackhole",
+            "tag": "block"
+        }
+    ]
 }
 EOF
 }
@@ -354,7 +348,7 @@ vless://${UUID}@${CFIP}:${CFPORT}?encryption=none&security=tls&sni=${argodomain}
 
 vmess://$(echo "{ \"v\": \"2\", \"ps\": \"${isp}\", \"add\": \"${CFIP}\", \"port\": \"${CFPORT}\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"none\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"${argodomain}\", \"path\": \"/vmess-argo?ed=2048\", \"tls\": \"tls\", \"sni\": \"${argodomain}\", \"alpn\": \"\" }" | base64 -w0)
 
-vmess://$(echo "{ \"v\": \"2\", \"ps\": \"${isp}\", \"add\": \"${IP}\", \"port\": \"${ARGO_PORT}\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"auto\", \"net\": \"splithttp\", \"type\": \"none\", \"host\": \"${argodomain}\", \"path\": \"\", \"tls\": \"none\", \"sni\": \"${argodomain}\", \"alpn\": \"\" }" | base64 -w0)
+vmess://$(echo "{ \"v\": \"2\", \"ps\": \"${isp}\", \"add\": \"${IP}\", \"port\": \"${ARGO_PORT}\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"auto\", \"net\": \"xthttp\", \"type\": \"none\", \"host\": \"${argodomain}\", \"path\": \"\", \"tls\": \"none\", \"sni\": \"${argodomain}\", \"alpn\": \"\" }" | base64 -w0)
 EOF
 echo ""
 while IFS= read -r line; do echo -e "${purple}$line"; done < ${work_dir}/url.txt
