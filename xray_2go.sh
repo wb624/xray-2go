@@ -348,7 +348,7 @@ vless://${UUID}@${CFIP}:${CFPORT}?encryption=none&security=tls&sni=${argodomain}
 
 vmess://$(echo "{ \"v\": \"2\", \"ps\": \"${isp}\", \"add\": \"${CFIP}\", \"port\": \"${CFPORT}\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"none\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"${argodomain}\", \"path\": \"/vmess-argo?ed=2048\", \"tls\": \"tls\", \"sni\": \"${argodomain}\", \"alpn\": \"\" }" | base64 -w0)
 
-vmess://$(echo "{ \"v\": \"2\", \"ps\": \"${isp}\", \"add\": \"${IP}\", \"port\": \"${ARGO_PORT}\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"auto\", \"net\": \"xthttp\", \"type\": \"none\", \"host\": \"${argodomain}\", \"path\": \"\", \"tls\": \"none\", \"sni\": \"${argodomain}\", \"alpn\": \"\" }" | base64 -w0)
+vmess://$(echo "{ \"v\": \"2\", \"ps\": \"${isp}\", \"add\": \"${IP}\", \"port\": \"${ARGO_PORT}\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"auto\", \"net\": \"xhttp\", \"type\": \"auto\", \"host\": \"${argodomain}\", \"path\": \"\", \"tls\": \"none\", \"sni\": \"${argodomain}\", \"alpn\": \"\" }" | base64 -w0)
 EOF
 echo ""
 while IFS= read -r line; do echo -e "${purple}$line"; done < ${work_dir}/url.txt
