@@ -8,16 +8,17 @@ WORKDIR="/etc/xray"
 XRAY_BIN="${WORKDIR}/xray"
 ARGO_BIN="${WORKDIR}/argo"
 CONFIG="${WORKDIR}/config.json"
-LOG="${WORKDIR}/argo.log"
+
+# 固定域名与Token
+DOMAIN="sd.wuoo.dpdns.org"
+ARGO_TOKEN="eyJhIjoiMmI5NmIxMzY0MDI1ZDQ4NmNiYTIyOWViN2JkYmEzZmEiLCJ0IjoiNTQwYzQwZDktNmI1Yi00YTk2LWJjM2UtMzk2Y2I4YmE4ZWNhIiwicyI6IlptUm1aVEJqWkRjdFpERmtOeTAwTVRBMUxUaGlOekF0TnpSaU9UVTJabU14TlRJdyJ9"
 
 # 安装依赖
-apt update -y && apt install -y curl unzip jq net-tools || true
+apt update -y && apt install -y curl unzip jq
 
 mkdir -p ${WORKDIR}
-touch ${LOG}
-chmod 666 ${LOG}
 
-# 下载 xray 和 cloudflared
+# 下载 Xray 和 cloudflared
 ARCH=$(uname -m)
 ARCH_ARG="64"; [ "$ARCH" = "aarch64" ] && ARCH_ARG="arm64-v8a"
 curl -Lo ${WORKDIR}/xray.zip https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-${ARCH_ARG}.zip
@@ -26,10 +27,10 @@ chmod +x ${ARGO_BIN}
 unzip -o ${WORKDIR}/xray.zip -d ${WORKDIR} && chmod +x ${XRAY_BIN}
 rm -f ${WORKDIR}/xray.zip
 
-# 生成 Xray 配置
+# 写入 Xray 配置
 cat > ${CONFIG} <<EOF
 {
-  "log": { "loglevel": "none" },
+  "log": { "loglevel": "warning" },
   "inbounds": [
     {
       "port": ${PORT},
@@ -60,27 +61,42 @@ cat > ${CONFIG} <<EOF
 }
 EOF
 
-# 启动 Xray（后台）
-nohup ${XRAY_BIN} run -c ${CONFIG} >/dev/null 2>&1 &
+# 写入 systemd 服务文件
+cat > /etc/systemd/system/xray.service <<EOF
+[Unit]
+Description=Xray
+After=network.target
 
-# 启动 cloudflared（后台）
-nohup ${ARGO_BIN} tunnel --url http://localhost:${PORT} --no-autoupdate --edge-ip-version auto --protocol http2 > ${LOG} 2>&1 &
+[Service]
+ExecStart=${XRAY_BIN} run -c ${CONFIG}
+Restart=on-failure
 
-# 等待 Argo 域名生成
-echo -e "\n等待 Argo 临时域名生成中..."
-for i in {1..10}; do
-  sleep 2
-  DOMAIN=$(grep -oP 'https://\K[^ ]+\.trycloudflare\.com' ${LOG} | tail -n 1)
-  [ -n "$DOMAIN" ] && break
-done
+[Install]
+WantedBy=multi-user.target
+EOF
 
+cat > /etc/systemd/system/argo.service <<EOF
+[Unit]
+Description=Cloudflare Argo Tunnel (固定Token)
+After=network.target
+
+[Service]
+ExecStart=${ARGO_BIN} tunnel --edge-ip-version auto --no-autoupdate --protocol http2 run --token ${ARGO_TOKEN}
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# 启动服务
+systemctl daemon-reload
+systemctl enable xray argo
+systemctl restart xray argo
+
+# 输出信息
 echo ""
 echo "=== 部署完成 ==="
 echo "UUID: ${UUID}"
-if [ -n "$DOMAIN" ]; then
-  echo ""
-  echo "=== VLESS 节点链接 ==="
-  echo "vless://${UUID}@www.visa.com.tw:443?encryption=none&security=tls&sni=${DOMAIN}&type=ws&host=${DOMAIN}&path=%2Fvless-argo#临时Argo"
-else
-  echo "Argo 域名获取失败，请稍后运行：grep trycloudflare ${LOG}"
-fi
+echo ""
+echo "=== VLESS 节点链接 ==="
+echo "vless://${UUID}@www.visa.com.tw:443?encryption=none&security=tls&sni=${DOMAIN}&type=ws&host=${DOMAIN}&path=%2Fvless-argo#Argo-Token"
