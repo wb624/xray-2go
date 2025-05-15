@@ -8,24 +8,36 @@ WORKDIR="/etc/xray"
 XRAY_BIN="${WORKDIR}/xray"
 ARGO_BIN="${WORKDIR}/argo"
 CONFIG="${WORKDIR}/config.json"
-
-# 固定域名与Token
 DOMAIN="sd.wuoo.dpdns.org"
 ARGO_TOKEN="eyJhIjoiMmI5NmIxMzY0MDI1ZDQ4NmNiYTIyOWViN2JkYmEzZmEiLCJ0IjoiNTQwYzQwZDktNmI1Yi00YTk2LWJjM2UtMzk2Y2I4YmE4ZWNhIiwicyI6IlptUm1aVEJqWkRjdFpERmtOeTAwTVRBMUxUaGlOekF0TnpSaU9UVTJabU14TlRJdyJ9"
 
-# 安装依赖
-apt update -y && apt install -y curl unzip jq
-
 mkdir -p ${WORKDIR}
+apt update -y && apt install -y curl unzip jq net-tools || true
 
-# 下载 Xray 和 cloudflared
+# 下载 Xray
 ARCH=$(uname -m)
 ARCH_ARG="64"; [ "$ARCH" = "aarch64" ] && ARCH_ARG="arm64-v8a"
 curl -Lo ${WORKDIR}/xray.zip https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-${ARCH_ARG}.zip
-curl -Lo ${ARGO_BIN} https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${ARCH}
-chmod +x ${ARGO_BIN}
-unzip -o ${WORKDIR}/xray.zip -d ${WORKDIR} && chmod +x ${XRAY_BIN}
+unzip -o ${WORKDIR}/xray.zip -d ${WORKDIR}
+chmod +x ${WORKDIR}/xray
 rm -f ${WORKDIR}/xray.zip
+
+# 下载 cloudflared 并验证是否为 ELF 文件
+if [ "$ARCH" = "aarch64" ]; then
+  CF_URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64"
+else
+  CF_URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64"
+fi
+
+curl -Lo ${ARGO_BIN} "$CF_URL"
+chmod +x ${ARGO_BIN}
+
+# 检查 cloudflared 是否是 ELF 二进制
+if ! file ${ARGO_BIN} | grep -q "ELF"; then
+  echo "错误：cloudflared 下载失败，获取到非二进制文件，可能是 HTML 页面"
+  echo "请检查网络或 GitHub 下载失败，稍后重试"
+  exit 1
+fi
 
 # 写入 Xray 配置
 cat > ${CONFIG} <<EOF
@@ -61,10 +73,10 @@ cat > ${CONFIG} <<EOF
 }
 EOF
 
-# 写入 systemd 服务文件
+# 写入 systemd 服务
 cat > /etc/systemd/system/xray.service <<EOF
 [Unit]
-Description=Xray
+Description=Xray Service
 After=network.target
 
 [Service]
@@ -77,7 +89,7 @@ EOF
 
 cat > /etc/systemd/system/argo.service <<EOF
 [Unit]
-Description=Cloudflare Argo Tunnel (固定Token)
+Description=Cloudflare Argo (固定Token)
 After=network.target
 
 [Service]
@@ -93,10 +105,9 @@ systemctl daemon-reload
 systemctl enable xray argo
 systemctl restart xray argo
 
-# 输出信息
-echo ""
-echo "=== 部署完成 ==="
+# 输出 VLESS 节点
+echo -e "\n=== 部署完成 ==="
 echo "UUID: ${UUID}"
 echo ""
 echo "=== VLESS 节点链接 ==="
-echo "vless://${UUID}@www.visa.com.tw:443?encryption=none&security=tls&sni=${DOMAIN}&type=ws&host=${DOMAIN}&path=%2Fvless-argo#Argo-Token"
+echo "vless://${UUID}@www.visa.com.tw:443?encryption=none&security=tls&sni=${DOMAIN}&type=ws&host=${DOMAIN}&path=%2Fvless-argo#Argo-Fixed"
