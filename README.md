@@ -23,7 +23,7 @@ bash <(curl -Ls https://github.com/wb624/xray-2go/blob/main/xray_2go.sh)
 
 带变量运行示例,修改为自己需要定义的参数
 ```
-PORT=3633 CFIP=www.visa.com.tw CFPORT=443 bash <(curl -Ls [https://github.com/eooce/xray-2go/raw/main/xray_2go.sh](https://github.com/wb624/xray-2go/blob/main/xray_2go.sh)
+PORT=3633 CFIP=www.visa.com.tw CFPORT=443 bash <(curl -Ls https://github.com/wb624/xray-2go/blob/main/xray_2go.sh)
 ```
 
 # 免责声明
